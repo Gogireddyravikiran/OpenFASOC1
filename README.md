@@ -1,302 +1,171 @@
-# OpenFASOC1
-# OpenFASoC - Fully Open-Source Autonomous SoC Synthesis using Customizable Cell-Based Synthesizable Analog Circuits
+# OpenFASoC - Fully Open-Source Autonomous SoC
+> This Flow Still under development*
 
-OpenFASoC is a project focused on automated analog generation from user specification to GDSII with fully open-sourced tools. It is led by a team of researchers at the University of Michigan and is inspired from FASoC which sits on proprietary software.
+## GENERATING .lef, .gds for Aux cells
 
-The tool is comprised of analog and mixed-signal circuit generators, which automatically create a physical design based on user specifications.
+**Discription** : In Open FASoC Flow to generate a automated Analog design few auxilaury cells are required to be created which cannot me implemented with existing library cells (like Header and SLC in temp_sence_gen).
 
-## PreRequisites
-Python 3.7+ required (Matplotlib, Pandas library should be downloaded)
-
-Necessary tools:
-
-- Magic https://github.com/RTimothyEdwards/magic
-
-- Netgen https://github.com/RTimothyEdwards/netgen
-
-- Klayout https://github.com/KLayout/klayout Please use this command to build preferably: ./build.sh -option '-j8' -noruby -without-qt-multimedia -without-qt-xml -without-qt-svg
-
-- Yosys https://github.com/The-OpenROAD-Project/yosys
-
-- OpenROAD https://github.com/The-OpenROAD-Project/OpenROAD (commid id: 7ff7171)
-
-- open_pdks https://github.com/RTimothyEdwards/open_pdks
-
-open_pdks is required to run drc/lvs check and the simulations
-After open_pdks is installed, please update the open_pdks key in common/platform_config.json with the installed path, down to the sky130A folder
-
-Note: All the required tools need to be loaded into the environment before running this generator.
-
-## Getting started
-Git clone the following repo
-```
-git clone https://github.com/idea-fasoc/OpenFASOC
-```
-Goto this link for more instructions:
-https://github.com/idea-fasoc/OpenFASOC/blob/main/docs/source/getting-started.rst
-
-After completing, Goto /OpenFASOC/openfasoc/common/platform_config.json and edit platform.json file with appropriate paths (mainly openPDKs)
-
-<img width="932" alt="image" src="https://user-images.githubusercontent.com/110079648/199405587-0e23fb3b-b420-4992-9e9b-2708a784b886.png">
-
-# Generating Temperature Sensor Generator EXAMPLE
-## Introduction: 
-This generator creates a compact mixed-signal temperature sensor based on the topology based on https://ieeexplore.ieee.org/document/9816083 It consists of a ring oscillator whose frequency is controlled by the voltage drop over a MOSFET operating in subthreshold regime, where its dependency on temperature is exponential.
-
-<img width="715" alt="image" src="https://user-images.githubusercontent.com/110079648/199419778-af0635d6-922b-4e71-aef6-1d39e9c0c15b.png">
-
-The physical implementation of the analog blocks in the circuit is done using two manually designed standard cells:
-
-HEADER cell, containing the transistors in subthreshold operation;
-
-SLC cell, containing the Split-Control Level Converter.
-
-<img width="1376" alt="image" src="https://user-images.githubusercontent.com/110079648/199421496-3e9eaaa4-5033-48dc-a446-48c33567c12f.png">
-
-<img width="1349" alt="image" src="https://user-images.githubusercontent.com/110079648/199422193-cb334d02-8a9d-44c4-bccb-2d832cb8360f.png">
-
-Generator Flow
---------------
-
-<img width="1166" alt="image" src="https://user-images.githubusercontent.com/110079648/199422742-862fbfcb-09ae-49da-b3c8-232d99096c37.png">
+<img width="285" alt="image" src="https://user-images.githubusercontent.com/110079648/199926204-bcb62999-de84-437b-b318-967db250c25e.png">
 
 
-To configure circuit specifications, modify the [test.json](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/test.json) : specfile in the generators/temp-sense-gen/ folder.
+### Reduired inputs from previous step of flow:
+ - SCHEMATIC and SPECIFICATIONS of AUX cell to be generated.
+(usually AUX cell contains lessthan 10 transistors)
 
-To run the default generator, ``cd`` into [openfasoc/generators/temp-sense-gen/](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen) :and execute the following command:
+### First Step 
+
+- Based upon given SCHEMATIC and SPECIFICATIONS of AUX cell, a SPICE Netlist should be created with .sp file extension.
+
+### Using ALIGN: Analog Layout, Intelligently Generated from Netlists:
+
+**About:**
+
+ALIGN is an open source automatic layout generator for analog circuits jointly developed under the DARPA IDEA program by the University of Minnesota, Texas A&M University, and Intel Corporation.
+
+The goal of ALIGN (Analog Layout, Intelligently Generated from Netlists) is to automatically translate an unannotated (or partially annotated) SPICE netlist of an analog circuit to a GDSII layout. The repository also releases a set of analog circuit designs.
+
+The ALIGN flow includes the following steps:
+
+Circuit annotation creates a multilevel hierarchical representation of the input netlist. This representation is used to implement the circuit layout in using a hierarchical manner.
+Design rule abstraction creates a compact JSON-format represetation of the design rules in a PDK. This repository provides a mock PDK based on a FinFET technology (where the parameters are based on published data). These design rules are used to guide the layout and ensure DRC-correctness.
+Primitive cell generation works with primitives, i.e., blocks at the lowest level of design hierarchy, and generates their layouts. Primitives typically contain a small number of transistor structures (each of which may be implemented using multiple fins and/or fingers). A parameterized instance of a primitive is automatically translated to a GDSII layout in this step.
+Placement and routing performs block assembly of the hierarchical blocks in the netlist and routes connections between these blocks, while obeying a set of analog layout constraints. At the end of this step, the translation of the input SPICE netlist to a GDSII layout is complete.
+
+#### Installing ALIGN:
+**Prerequisites**
+
+- gcc >= 6.1.0 (For C++14 support)
+- python >= 3.7 
+
+Use the following commands to install ALIGN tool.
 
 ```
+export CC=/path/to/your/gcc
+export CXX=/path/to/your/g++
+git clone https://github.com/ALIGN-analoglayout/ALIGN-public
+cd ALIGN-public
 
-  make sky130hd_temp
+#Create a Python virtualenv
+python -m venv general
+source general/bin/activate
+python -m pip install pip --upgrade
 
+# Install ALIGN as a USER
+pip install -v .
+
+# Install ALIGN as a DEVELOPER
+pip install -e .
+
+pip install setuptools wheel pybind11 scikit-build cmake ninja
+pip install -v -e .[test] --no-build-isolation
+pip install -v --no-build-isolation -e . --no-deps --install-option='-DBUILD_TESTING=ON'
 ```
 
-<img width="700" alt="image" src="https://user-images.githubusercontent.com/110079648/199423159-4c68fd4d-4562-4e9f-a686-7d9f3b3dc721.png">
+#### Making ALIGN Portable to Sky130 tehnology
 
-Initially the workspace is cleaned before the flow starts:
-
-<img width="715" alt="image" src="https://user-images.githubusercontent.com/110079648/199423323-49d1657d-f26a-4e12-b6d0-7a8c290d0f98.png">
-
-  For other generator options, use `make help`.
-
-The default circuit's physical design generation can be divided into three parts:
-
-- Verilog generation
-- RTL-to-GDS flow
-- Post-layout verification
-
-Verilog generation
-------------------
-
-Running ``make sky130hd_temp`` (temp for "temperature sensor") executes the [temp-sense-gen.py](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/tools/temp-sense-gen.py) script from temp-sense-gen/tools/. 
-This file takes the input specifications from [test.json](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/test.json) and outputs Verilog files containing the description of the circuit.
-
-<img width="704" alt="image" src="https://user-images.githubusercontent.com/110079648/199423457-4a63b0d8-dcf9-4343-8cab-8a6f22679fde.png">
-
- **Note:**
-    - temp-sense-gen.py calls other modules from temp-sense-gen/tools/ during execution. For example, [readparamgen.py](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/tools/readparamgen.py) is in charge of reading test.json, checking for correct user input and choosing the correct circuit elements.
-
-The generator starts from a Verilog template of the temperature sensor circuit, located in [temp-sense-gen/src/](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen/src). The ``.v`` template files have lines marked with ``@@``, which are replaced according to the specifications.
-
-Example: [counter_generic.v line 31](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/src/counter_generic.v#L31) is replaced during Verilog generation.
+Clone the following Repository inside ALIGN-public directory
 
 ```
-  assign done_sens = WAKE_pre &&  doneb;
-	assign done_ref = WAKE && doneb;
-  @@ @np Buf_DONE(.A(done_pre), .nbout(DONE));
-
-  always @ (*) begin
-    case (done_pre)
-      1'd0:	DOUT = 0;
-      1'd1:	DOUT = div_s;
-    endcase
-  end
- ```
-
-To replace these lines with the correct circuit elements, temp-sense-gen takes cells from the selected technology. The number of inverters in the ring oscillator and of HEADER cells in parallel are optimized using a nearest-neighbor approach with experimental data from [models/modelfile.csv](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/models/modelfile.csv>)
-
-**Note:**
-  Currently, the only supported technology in temp-sense-gen is sky130hd (hd for “high density”).
-  
- RTL-to-GDS flow
- ---------------
-
-The `compilation` from the Verilog description to a physical circuit is made using a fork of [OpenROAD Flow](http://github.com/the-OpenROAD-Project/openroAD-flow-scripts/), which is an RTS-to-GDS flow based on the [OpenROAD](https://github.com/The-OpenROAD-Project/OpenROAD) tool. The fork is in the [temp-sense-gen/flow/](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen/flow) directory.
-
-OpenROAD Flow takes a design from the temp-sense-gen/flow/design/ directory and runs it through its flow, generating a DEF and a GDS at the end. The design is specified by using the generated Verilog files and a `config.mk` file that configures OpenROAD Flow to the temperature sensor design.
-
+git clone https://github.com/ALIGN-analoglayout/ALIGN-pdk-sky130
 ```
 
-  temp-sense-gen
-  ├── blocks
-  └── flow
-      └── design
-          ├── sky130hd
-          │   └── tempsense
-          │       ├── config.mk             <--
-          │       └── constraint.sdc
-          └── src
-              └── tempsense
-                  ├── counter.v             <--
-                  ├── TEMP_ANALOG_hv.nl.v   <--
-                  ├── TEMP_ANALOG_lv.nl.v   <--
-                  ├── TEMP_AUTO_def.v       <--
-                  └── tempsenseInst_error.v <--
-```
+move `SKY130_PDK` folder to `/Users/gopalakrishnareddysanampudi/Documents/GitHub/OpenFASoC/AUXCELL/ALIGN-public/pdks`
 
-For more information on OpenROAD Flow, check their [docs](https://openroad.readthedocs.io/en/latest/user/GettingStarted.html)
+#### Running ALIGN TOOL
 
-**Note:-**
-  OpenROAD Flow also creates intermediary files in the temp-sense-gen/flow/results/ folder, where each file is named according to the step in the flow it was created.
-
-  For example, `2_floorplan.odb` is the file created after step 2 of OpenROAD Flow Scripts, which is floorplan generation.
-
-The steps from the RTL-to-GDS flow look like this, usual in a digital flow:
-
-![tempsense_digflow_diagram](https://user-images.githubusercontent.com/110079631/199325657-1322e2c3-84ea-4f66-943d-6775b3b5cb24.png)
-
-
-Since OpenROAD was developed with digital designs in mind, some features do not natively support analog or mixed-signal designs for now. Hence, in the temperature sensor, the physical implementation does not get successfully generated with the original flow.
-
-Some changes are then made to customize the OpenROAD Flow repo and generate a working physical design, summarized in the diagram below:
-
-
-  
-Synthesis
----------
-The OpenROAD Flow starts with a flow configuration file [config.mk](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/design/sky130hd/tempsense/config.mk), the chosen platform (sky130hd, for example) and the Verilog files are generated from the previous part.
-
-The synthesis is run using Yosys to find the appropriate circuit implementation from the available cells in the platform.
-
-<img width="706" alt="image" src="https://user-images.githubusercontent.com/110079648/199423807-1f9df90c-a1c5-4b32-b434-97272e46f80b.png">
-
-
-Floorplan
----------
-
-
-Then, the floorplan for the physical design is generated with OpenROAD, which requires a description of the power delivery network in [pdn.cfg](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/blocks/sky130hd/pdn.cfg).
-
-The floorplan final power report is shown below:
-
-<img width="716" alt="image" src="https://user-images.githubusercontent.com/110079648/199423951-9652d93a-1d90-4fef-8c76-421ae5ef07e8.png">
-
-<img width="714" alt="image" src="https://user-images.githubusercontent.com/110079648/199424007-e5261b5a-e027-4698-b2b0-f16c49bcbf3e.png">
-
-This temperature sensor design implements two voltage domains: one for the VDD that powers most of the circuit, and another for the VIN that powers the ring oscillator and is an output of the HEADER cells. Such voltage domains are created within the [floorplan.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/floorplan.tcl#L34) script, with the following lines of code:
+Everytime we start running tool in new terminal run following commands.
 
 ```
-
-  # Initialize floorplan using DIE_AREA/CORE_AREA
-  # ----------------------------------------------------------------------------
-  } else {
-    create_voltage_domain TEMP_ANALOG -area $::env(VD1_AREA)
-
-    initialize_floorplan -die_area $::env(DIE_AREA) \
-                         -core_area $::env(CORE_AREA) \
-                         -site $::env(PLACE_SITE)
-
-     if {[info exist ::env(DOMAIN_INSTS_LIST)]} {
-      source $::env(SCRIPTS_DIR)/openfasoc/read_domain_instances.tcl
-      read_domain_instances TEMP_ANALOG $::env(DOMAIN_INSTS_LIST)
-    }
-  }
+python -m venv general
+source general/bin/activate
 ```
-In the image, line #34 will create a voltage domain named TEMP_ANALOG with area coordinates as defined in config.mk.
+Commands to run ALIGN (goto ALIGN-public directory)
 
-Lines #36 to #38 will initialize the floorplan, as default in OpenROAD Flow, from the die area, core area and place site coordinates from config.mk.
-
-And finally, lines #40 to #42 will source [read_domain_instances.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/read_domain_instances.tcl), a script that assigns the corresponding instances to the TEMP_ANALOG domain group. It gets the wanted instances from the DOMAIN_INSTS_LIST variable, set to [tempsenseInst_domain_insts.txt](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/blocks/sky130hd/tempsenseInst_domain_insts.txt) in config.mk. This will ensure the cells are placed in the correct voltage domain during the detailed placement phase.
-
-The tempsenseInst_domain_insts.txt file contains all instances to be placed in the TEMP_ANALOG domain (VIN voltage tracks). These cells are the components of the ring oscillator, including the inverters whose quantity may vary according to the optimization results. Thus, this file actually gets generated during temp-sense-gen.py.
-
-Placement
----------
-
-Placement *takes place* after the floorplan is ready and has two phases: global placement and detailed placement. The output of this phase will have all instances placed in their corresponding voltage domain, ready for routing.
-
-The Global Placement power report is shown below:
-
-<img width="708" alt="image" src="https://user-images.githubusercontent.com/110079648/199424273-9e0c11cd-8493-4ac2-b8a8-b9139784b039.png">
-
-The Detail Placement power report is shown below:
-
-
-
-
-Routing
--------
-
-Routing is also divided into two phases: global routing and detailed routing. Right before global routing, OpenFASoC calls [pre_global_route.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/pre_global_route.tcl):
 
 ```
-  # NDR rules
-  source $::env(SCRIPTS_DIR)/openfasoc/add_ndr_rules.tcl
-
-  # Custom connections
-  source $::env(SCRIPTS_DIR)/openfasoc/create_custom_connections.tcl
-  if {[info exist ::env(CUSTOM_CONNECTION)]} {
-    create_custom_connections $::env(CUSTOM_CONNECTION)
-  }
+mkdir work
+cd work
+```
+General syntax to give inputs
+```
+schematic2layout.py <NETLIST_DIR> -p <PDK_DIR> -c
 ```
 
-This script sources two other files: [add_ndr_rules.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/add_ndr_rules.tcl), which adds an NDR rule to the VIN net to improve routes that connect both voltage domains, and [create_custom_connections.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/create_custom_connections.tcl), which creates the connection between the VIN net and the HEADER instances.
+Running a EXAMPLE:
+```
+schematic2layout.py ../examples/telescopic_ota -p ../pdks/FinFET14nm_Mock_PDK/
+```
+Running a EXAMPLE on Sky130pdk
+```
+schematic2layout.py ../ALIGN-pdk-sky130/examples/five_transistor_ota -p ../pdks/SKY130_PDK/
+```
 
-The Global route power report is shown below:
+#### FLOW
 
-<img width="722" alt="Screenshot 2022-11-02 at 10 41 36 AM" src="https://user-images.githubusercontent.com/110079631/199404867-b6335e4c-80a9-4690-a693-51fdb913c144.png">
+Creating a Python virtualenv
 
-The Finish power report is shown below:
+![image_2022-11-04_13-58-54](https://user-images.githubusercontent.com/110079648/199928893-d6f7f7cd-61a1-498f-afed-13cbc0914e31.png)
 
-<img width="722" alt="Screenshot 2022-11-02 at 10 42 11 AM" src="https://user-images.githubusercontent.com/110079631/199404944-67385216-7156-4c45-8cc3-c2025e7f7af1.png">
+Running design
 
- **Final layout after routing:**
- 
- <img width="1512" alt="Screenshot 2022-10-29 at 11 39 37 AM" src="https://user-images.githubusercontent.com/110079631/199332534-5951cad9-c38c-4d2d-bf93-e37be27c67b0.png">
+![image_2022-11-04_13-58-29](https://user-images.githubusercontent.com/110079648/199929139-1f75be9d-d8a9-4630-833d-9055165157c3.png)
 
-At the end, OpenROAD Flow will output its logs under flow/reports/, and its results under flow/results/.
+![image_2022-11-04_13-59-33](https://user-images.githubusercontent.com/110079648/199929188-936b7d63-97af-4d9f-862d-63b2e88e8227.png)
 
-<img width="722" alt="Screenshot 2022-11-02 at 10 42 38 AM" src="https://user-images.githubusercontent.com/110079631/199405258-aff2ce8b-3375-4213-aa97-fa9bc43327f2.png">
+![image_2022-11-04_14-00-21](https://user-images.githubusercontent.com/110079648/199929296-308b4efa-429e-4ca6-a892-24bab448cbb8.png)
 
 
-Here's an overview of all changes made from OpenROAD Flow to OpenFASoC’s temp-sense-gen (the reference directory taken is [temp-sense-gen/flow/](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen/flow):
+#### Generated .lef and .gds files for example (using Sky130pdk)
 
-Design files (needed for configuring OpenROAD Flow Scripts)
-| Design files | Flow |
-| --- | --- |
-| [design/sky130hd/tempsense/config.mk](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/design/sky130hd/tempsense/config.mk) | OpenROAD Flow Scripts configuration |
-|[design/src/tempsense/*.v ](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen/flow/design/src/tempsense>)|Circuit Verilog description|
-|[../blocks/*/pdn.cfg](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/blocks/sky130hd/pdn.cfg)|Power Delivery Network setup|
+- TELESCOPIC_OTA .gds 
 
-Additional or modified files (make OpenROAD Flow Scripts support this analog design)
+<img width="725" alt="image" src="https://user-images.githubusercontent.com/110079648/199927903-0633843d-cc26-47a0-845c-2e32b301565b.png">
 
-| Additional files | Flow |
-| --- | --- |
-| [scripts/floorplan.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/floorplan.tcl)(modified)
-[scripts/openfasoc/read_domain_instances.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/read_domain_instances.tcl) | Create a voltage domain for the output voltage VIN from the header cells, assigns its instances |
-| [scripts/openfasoc/pre_global_route.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/pre_global_route.tcl)
-[scripts/openfasoc/add_ndr_rules.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/add_ndr_rules.tcl)
-[scripts/openfasoc/create_custom_connections.tcl](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/scripts/openfasoc/create_custom_connections.tcl) | Scripts run before global routing to setup the connection between the header cells and the VIN voltage domain ring |
-| [Makefile](https://github.com/idea-fasoc/OpenFASOC/blob/main/openfasoc/generators/temp-sense-gen/flow/Makefile) (modified) | Set flow directories from the fork, jump the CTS part (not needed for the temp-sense-gen since there's no clock), add DRC w/ Magic, add LVS w/ Netgen |
+- TELESCOPIC_OTA .lef
 
-The other files are unchanged from OpenROAD Flow.
+<img width="729" alt="image" src="https://user-images.githubusercontent.com/110079648/199928376-ea9d82d4-e14a-4f2f-acca-f6ddd12dbbd6.png">
 
-**Note:-**
-  For debugging purposes, it's also possible to generate only part of the flow, visualize the results in OpenROAD GUI or generate DEF files of all intermediary results. For doing so, the Makefile in temp-sense-gen/flow/ contains special targets.
+-FIVE_TRANSISTOR_OTA .gds
 
-  After running ``make sky130hd_temp`` in temp-sense-gen/ once, ``cd`` into the [flow/](https://github.com/idea-fasoc/OpenFASOC/tree/main/openfasoc/generators/temp-sense-gen/flow) directory and use one of the commands from the following table:
+<img width="755" alt="image" src="https://user-images.githubusercontent.com/110079648/199897042-c22c79a4-aecd-4091-acdb-798dbd229e57.png">
 
-| Commands | Description |
-| --- | --- |
-|``make synth``| Stops the flow after synthesis |
-|``make floorplan``| Stops the flow after floorplan |
-|``make place``| Stops the flow after placement |
-|``make route``| Stops the flow after routing |
-|``make finish``| Runs the whole RTL-to-GDS flow |
-|``make gui_floorplan``| Opens the design after floorplan in OpenROAD GUI |
-|``make gui_place``| Opens the design after placement in OpenROAD GUI |
-|``make gui_route``| Opens the design after routing in OpenROAD GUI |
-|``make gui_final``| Opens the finished design in OpenROAD GUI |
-|``make all_defs``| Creates DEF files in flow/results/ of every step in the flow |
-|``make print-ENV_VARIABLE_NAME``| Prints the value of an env variable recognized by OpenROAD Flow|
+-FIVE_TRANSISTOR_OTA .lef
+
+<img width="755" alt="image" src="https://user-images.githubusercontent.com/110079648/199897231-8e85a4ab-67a6-4482-bca6-98121c485561.png">
+
+
+## RUNNING ALIGN FOR input user SPICE Netlist
+
+A simple SPICE Netlist for inverter is written to generate .lef and .gds files
+
+```
+.subckt inverter vinn voutn vdd 0
+m1 voutn vinn vdd vdd pmos_rvt w=840e-9 l=150e-9 nf=2
+m2 voutn vinn 0 0 nmos_rvt w=840e-9 l=150e-9 nf=2
+.ends inverter
+** End of subcircuit definition.
+```
+- .gds
+
+
+<img width="857" alt="image" src="https://user-images.githubusercontent.com/110079648/199897719-b3037219-6157-4331-b9f7-80edf3a226dd.png">
+
+- .lef
+
+
+<img width="860" alt="image" src="https://user-images.githubusercontent.com/110079648/199897814-4ac68600-abc6-4ca1-88bb-092bf7098d0f.png">
+
+# AUTHORS
+-  *SANAMPUDI GOPALA KRISHNA REDDY*, Postgraduate Student, International Institute of Information Technology, Bangalore
+-  *GANDI AJAY KUMAR*, Postgraduate Student, International Institute of Information Technology, Bangalore
+-  *GOGIREDDY RAVI KIRAN REDDY*, Postgraduate Student, International Institute of Information Technology, Bangalore
+# Contributers
+-  *KUNAL GHOSH*, Director, VSD Corp. Pvt. Ltd
+-  *DR VASANTHI*, PhD, International Institute of Information Technology, Bangalore
+
+# Acknowledgments
+- Kunal Ghosh, Director, VSD Corp. Pvt. Ltd.
+
+	
+
 
