@@ -156,9 +156,10 @@ m2 voutn vinn 0 0 nmos_rvt w=840e-9 l=150e-9 nf=2
 <img width="860" alt="image" src="https://user-images.githubusercontent.com/110079648/199897814-4ac68600-abc6-4ca1-88bb-092bf7098d0f.png">
 
 # AUTHORS
+-  *GOGIREDDY RAVI KIRAN REDDY*, Postgraduate Student, International Institute of Information Technology, Bangalore
 -  *SANAMPUDI GOPALA KRISHNA REDDY*, Postgraduate Student, International Institute of Information Technology, Bangalore
 -  *GANDI AJAY KUMAR*, Postgraduate Student, International Institute of Information Technology, Bangalore
--  *GOGIREDDY RAVI KIRAN REDDY*, Postgraduate Student, International Institute of Information Technology, Bangalore
+
 # Contributers
 -  *KUNAL GHOSH*, Director, VSD Corp. Pvt. Ltd
 -  *DR VASANTHI*, PhD, International Institute of Information Technology, Bangalore
